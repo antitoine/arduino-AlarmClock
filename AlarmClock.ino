@@ -21,9 +21,10 @@
 #define DIGIT_4    13 // Pin connected to the digit 4
 
 /*********** Global variables **********/
-SevSeg sevseg;           // Object of the lib SevSeg in order to control segments
-long time = 0;           // The global time of the clock in seconds
-int pointPosition = 0;   // Position of the point (change every seconds)
+SevSeg sevseg;      // Object of the lib SevSeg in order to control segments
+long time = 0;      // The global time of the clock in seconds
+int point = false;  // Position of the point (change every seconds)
+int milSeconds = 0; // Counter of milliseconds
 
 /*********** Setup **********/
 void setup() {
@@ -38,9 +39,9 @@ void setup() {
   sevseg.begin(hardwareConfig, numDigits, digitPins, segmentPins, resistorsOnSegments, updateWithDelays, leadingZeros);
   sevseg.setBrightness(90);
   
-  // Init timer
-  Timer1.initialize(1000000);
-  Timer1.attachInterrupt(incrementTimer);
+  // Init timer clock
+  Timer1.initialize(1000);
+  Timer1.attachInterrupt(updateTimer);
   
   // Configure buttons
   pinMode(BUTTON_1, INPUT);
@@ -50,36 +51,40 @@ void setup() {
 /*********** Main loop **********/
 void loop() {
   if (!digitalRead(BUTTON_1)) {
-    time += 3600;
-    checkTime();
-    while (!digitalRead(BUTTON_1));
+    addTime(3600);
+    delay(200);
   }
   if (!digitalRead(BUTTON_2)) {
-    time += 60;
-    checkTime();
-    while (!digitalRead(BUTTON_2));
+    addTime(60);
+    delay(200);
   }
   
-  int minutes = (time / 60) % 60;
-  int hours = (time / 3600) * 100;
-  sevseg.setNumber(hours + minutes, pointPosition);
-  sevseg.refreshDisplay();
 }
 
 /*********** Functions **********/
 
 // Used by the interruption every seconds
-void incrementTimer() {
-  time++;
-  checkTime();
-  pointPosition++;
-  if (pointPosition == 4) {
-    pointPosition = 0;
+void updateTimer() {
+  
+  milSeconds ++;
+  
+  // If 1000 ms were counted --> Increment seconds timer
+  if (milSeconds == 1000) {
+    milSeconds = 0;
+    addTime(1);
+    point = !point;
   }
+
+  // Refresh the display
+  const int minutes = (time / 60) % 60;
+  const int hours = (time / 3600) * 100;
+  sevseg.setNumber(hours + minutes, point ? 2 : -1);
+  sevseg.refreshDisplay();
 }
 
-void checkTime() {
-  if (time >= 86400) {
+void addTime(int add) {
+  time += add;
+    if (time >= 86400) {
     time = 0;
   }
 }
