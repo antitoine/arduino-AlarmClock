@@ -5,6 +5,8 @@
 #include "SevSeg.h"
 
 /*********** Defines **********/
+#define BUTTON_1   0  // Pin connected to the first button
+#define BUTTON_2   1  // Pin connected to the second button
 #define SEG_A      2  // Pin connected to the segment A
 #define SEG_B      3  // Pin connected to the segment B
 #define SEG_C      4  // Pin connected to the segment C
@@ -19,9 +21,9 @@
 #define DIGIT_4    13 // Pin connected to the digit 4
 
 /*********** Global variables **********/
-SevSeg sevseg;          // Object of the lib SevSeg in order to control segments
-int time = 0;           // The global time of the clock in seconds
-int positionPoint = 0;  // Position of the point in the number
+SevSeg sevseg;           // Object of the lib SevSeg in order to control segments
+long time = 0;           // The global time of the clock in seconds
+int pointPosition = 0;   // Position of the point (change every seconds)
 
 /*********** Setup **********/
 void setup() {
@@ -39,13 +41,28 @@ void setup() {
   // Init timer
   Timer1.initialize(1000000);
   Timer1.attachInterrupt(incrementTimer);
+  
+  // Configure buttons
+  pinMode(BUTTON_1, INPUT);
+  pinMode(BUTTON_2, INPUT);
 }
 
 /*********** Main loop **********/
 void loop() {
+  if (!digitalRead(BUTTON_1)) {
+    time += 3600;
+    checkTime();
+    while (!digitalRead(BUTTON_1));
+  }
+  if (!digitalRead(BUTTON_2)) {
+    time += 60;
+    checkTime();
+    while (!digitalRead(BUTTON_2));
+  }
+  
   int minutes = (time / 60) % 60;
   int hours = (time / 3600) * 100;
-  sevseg.setNumber(hours + minutes, positionPoint);
+  sevseg.setNumber(hours + minutes, pointPosition);
   sevseg.refreshDisplay();
 }
 
@@ -54,8 +71,15 @@ void loop() {
 // Used by the interruption every seconds
 void incrementTimer() {
   time++;
-  positionPoint++;
-  if (positionPoint == 4) {
-    positionPoint = 0;
+  checkTime();
+  pointPosition++;
+  if (pointPosition == 4) {
+    pointPosition = 0;
+  }
+}
+
+void checkTime() {
+  if (time >= 86400) {
+    time = 0;
   }
 }
