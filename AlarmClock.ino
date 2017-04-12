@@ -1,32 +1,38 @@
+/* AlarmClock */ 
+
+/*********** Includes **********/
 #include "TimerOne.h"
 #include "SevSeg.h"
-SevSeg sevseg;
 
-//display pins
-int segA = 2;
-int segB = 3;
-int segC = 4;
-int segD = 5;
-int segE = 6;
-int segF = 7;
-int segG = 8;
-int segP = 9;
-int d1 = 10;
-int d2 = 11;
-int d3 = 12;
-int d4 = 13;
+/*********** Defines **********/
+#define SEG_A      2  // Pin connected to the segment A
+#define SEG_B      3  // Pin connected to the segment B
+#define SEG_C      4  // Pin connected to the segment C
+#define SEG_D      5  // Pin connected to the segment D
+#define SEG_E      6  // Pin connected to the segment E
+#define SEG_F      7  // Pin connected to the segment F
+#define SEG_G      8  // Pin connected to the segment G
+#define SEG_P      9  // Pin connected to the point
+#define DIGIT_1    10 // Pin connected to the digit 1
+#define DIGIT_2    11 // Pin connected to the digit 2
+#define DIGIT_3    12 // Pin connected to the digit 3
+#define DIGIT_4    13 // Pin connected to the digit 4
 
-int time = 0;
+/*********** Global variables **********/
+SevSeg sevseg;          // Object of the lib SevSeg in order to control segments
+int time = 0;           // The global time of the clock in seconds
+int positionPoint = 0;  // Position of the point in the number
 
+/*********** Setup **********/
 void setup() {
   // Set up segments
   byte numDigits = 4;
-  byte digitPins[] = {d1, d2, d3, d4};
-  byte segmentPins[] = {segA, segB, segC, segD, segE, segF, segG, segP};
+  byte digitPins[] = {DIGIT_1, DIGIT_2, DIGIT_3, DIGIT_4};
+  byte segmentPins[] = {SEG_A, SEG_B, SEG_C, SEG_D, SEG_E, SEG_F, SEG_G, SEG_P};
   bool resistorsOnSegments = false;
   byte hardwareConfig = COMMON_CATHODE;
   bool updateWithDelays = false;
-  bool leadingZeros = false;
+  bool leadingZeros = true;
   sevseg.begin(hardwareConfig, numDigits, digitPins, segmentPins, resistorsOnSegments, updateWithDelays, leadingZeros);
   sevseg.setBrightness(90);
   
@@ -35,14 +41,21 @@ void setup() {
   Timer1.attachInterrupt(incrementTimer);
 }
 
+/*********** Main loop **********/
 void loop() {
-  int minutes = (time / 60) * 100;
-  int seconds = time % 60;
-  int displayTime = minutes + seconds;
-  sevseg.setNumber(displayTime, 2);
+  int minutes = (time / 60) % 60;
+  int hours = (time / 3600) * 100;
+  sevseg.setNumber(hours + minutes, positionPoint);
   sevseg.refreshDisplay();
 }
 
+/*********** Functions **********/
+
+// Used by the interruption every seconds
 void incrementTimer() {
   time++;
+  positionPoint++;
+  if (positionPoint == 4) {
+    positionPoint = 0;
+  }
 }
