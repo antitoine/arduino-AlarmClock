@@ -1,20 +1,13 @@
 /*
   Arduino Mario Bros Tunes
   With Piezo Buzzer and PWM
-
-  Connect the positive side of the Buzzer to pin 3,
-  then the negative side to a 1k ohm resistor. Connect
-  the other side of the 1 k ohm resistor to
-  ground(GND) pin on the Arduino.
-
-  by: Dipto Pratyaksa
-  last updated: 31/3/13
+  
+  Original code for this melody from:
+  Dipto Pratyaksa (last updated 31/3/13)
+  http://www.princetronics.com/supermariothemesong/
 */
 
-/*************************************************
- * Public Constants
- *************************************************/
-
+/*********** Notes **********/
 #define NOTE_B0  31
 #define NOTE_C1  33
 #define NOTE_CS1 35
@@ -104,10 +97,11 @@
 #define NOTE_CS8 4435
 #define NOTE_D8  4699
 #define NOTE_DS8 4978
- 
-#define melodyPin 3
-//Mario main theme melody
-int melody[] = {
+
+/*********** Melody **********/
+
+// Mario main theme melody
+int mainMelody[] = {
   NOTE_E7, NOTE_E7, 0, NOTE_E7,
   0, NOTE_C7, NOTE_E7, 0,
   NOTE_G7, 0, 0,  0,
@@ -133,8 +127,9 @@ int melody[] = {
   0, NOTE_E7, 0, NOTE_C7,
   NOTE_D7, NOTE_B6, 0, 0
 };
-//Mario main them tempo
-int tempo[] = {
+
+// Mario main them tempo
+int mainTempo[] = {
   12, 12, 12, 12,
   12, 12, 12, 12,
   12, 12, 12, 12,
@@ -160,8 +155,9 @@ int tempo[] = {
   12, 12, 12, 12,
   12, 12, 12, 12,
 };
-//Underworld melody
-int underworld_melody[] = {
+
+// Underworld melody
+int underworldMelody[] = {
   NOTE_C4, NOTE_C5, NOTE_A3, NOTE_A4,
   NOTE_AS3, NOTE_AS4, 0,
   0,
@@ -182,8 +178,9 @@ int underworld_melody[] = {
   NOTE_AS3, NOTE_A3, NOTE_GS3,
   0, 0, 0
 };
-//Underwolrd tempo
-int underworld_tempo[] = {
+
+// Underwolrd tempo
+int underworldTempo[] = {
   12, 12, 12, 12,
   12, 12, 6,
   3,
@@ -204,74 +201,67 @@ int underworld_tempo[] = {
   10, 10, 10,
   3, 3, 3
 };
- 
-void setup(void)
-{
-  pinMode(3, OUTPUT);//buzzer
-  pinMode(13, OUTPUT);//led indicator when singing a note
- 
+
+/*********** General Variables **********/
+byte buzzerPinSet = NULL;
+byte ledPinSet = NULL;
+int delayBetweenNotes = 0;
+
+/*********** Functions **********/
+void initMelody(byte buzzerPin, byte ledPin, int addDelayBetweenNotes) {
+  buzzerPinSet = buzzerPin;
+  pinMode(buzzerPin, OUTPUT); // Buzzer
+  if (ledPin) {
+    pinMode(ledPin, OUTPUT); // Led indicator when singing a note
+    ledPinSet = ledPin;
+  }
+  if (addDelayBetweenNotes) {
+    delayBetweenNotes += addDelayBetweenNotes;
+  }
 }
-void loop()
-{
-  //sing the tunes
-  sing(1);
-  sing(1);
-  sing(2);
-}
-int song = 0;
+
+void sing(int song) {
+  int* melody = NULL;
+  int melodySize = 0;
+  int* tempo = NULL;
+
+  switch (song) {
+    case 1:
+      melody = mainMelody;
+      melodySize = sizeof(mainMelody) / sizeof(int);
+      tempo = mainTempo;
+      break;
+    case 2:
+      melody = underworldMelody;
+      melodySize = sizeof(underworldMelody) / sizeof(int);
+      tempo = underworldTempo;
+      break;
+    default:
+      return;
+      break;
+  }
+  for (int thisNote = 0; thisNote < melodySize; thisNote++) {
  
-void sing(int s) {
-  // iterate over the notes of the melody:
-  song = s;
-  if (song == 2) {
-    Serial.println(" 'Underworld Theme'");
-    int size = sizeof(underworld_melody) / sizeof(int);
-    for (int thisNote = 0; thisNote < size; thisNote++) {
+    // to calculate the note duration, take one second
+    // divided by the note type.
+    // e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+    int noteDuration = 1000 / tempo[thisNote];
  
-      // to calculate the note duration, take one second
-      // divided by the note type.
-      //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-      int noteDuration = 1000 / underworld_tempo[thisNote];
+    buzz(buzzerPinSet, melody[thisNote], noteDuration, ledPinSet);
  
-      buzz(melodyPin, underworld_melody[thisNote], noteDuration);
+    // to distinguish the notes, set a minimum time between them
+    int pauseBetweenNotes = noteDuration + delayBetweenNotes;
+    delay(pauseBetweenNotes);
  
-      // to distinguish the notes, set a minimum time between them.
-      // the note's duration + 30% seems to work well:
-      int pauseBetweenNotes = noteDuration * 1.30;
-      delay(pauseBetweenNotes);
- 
-      // stop the tone playing:
-      buzz(melodyPin, 0, noteDuration);
- 
-    }
- 
-  } else {
- 
-    Serial.println(" 'Mario Theme'");
-    int size = sizeof(melody) / sizeof(int);
-    for (int thisNote = 0; thisNote < size; thisNote++) {
- 
-      // to calculate the note duration, take one second
-      // divided by the note type.
-      //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-      int noteDuration = 1000 / tempo[thisNote];
- 
-      buzz(melodyPin, melody[thisNote], noteDuration);
- 
-      // to distinguish the notes, set a minimum time between them.
-      // the note's duration + 30% seems to work well:
-      int pauseBetweenNotes = noteDuration * 1.30;
-      delay(pauseBetweenNotes);
- 
-      // stop the tone playing:
-      buzz(melodyPin, 0, noteDuration);
- 
-    }
+    // stop the tone playing:
+    buzz(buzzerPinSet, 0, noteDuration, ledPinSet);
   }
 }
  
-void buzz(int targetPin, long frequency, long length) {
-  digitalWrite(13, HIGH);
+void buzz(byte targetPin, long frequency, long length, byte ledPin) {
+  if (ledPin) {
+    digitalWrite(ledPin, HIGH);
+  }
   long delayValue = 1000000 / frequency / 2; // calculate the delay value between transitions
   //// 1 second's worth of microseconds, divided by the frequency, then split in half since
   //// there are two phases to each cycle
@@ -284,6 +274,7 @@ void buzz(int targetPin, long frequency, long length) {
     digitalWrite(targetPin, LOW); // write the buzzer pin low to pull back the diaphram
     delayMicroseconds(delayValue); // wait again or the calculated delay value
   }
-  digitalWrite(13, LOW);
- 
+  if (ledPin) {
+    digitalWrite(ledPin, LOW);
+  }
 }

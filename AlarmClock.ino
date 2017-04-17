@@ -19,12 +19,14 @@
 #define DIGIT_2    11 // Pin connected to the digit 2
 #define DIGIT_3    12 // Pin connected to the digit 3
 #define DIGIT_4    13 // Pin connected to the digit 4
+#define BUZZER     A0 // Pin conncted to the buzzer
+#define LED        A3 // Pin connected to the LED
 
 /*********** Global variables **********/
-SevSeg sevseg;      // Object of the lib SevSeg in order to control segments
-long time = 0;      // The global time of the clock in seconds
-int point = false;  // Position of the point (change every seconds)
-int milSeconds = 0; // Counter of milliseconds
+SevSeg sevseg;        // Object of the lib SevSeg in order to control segments
+long time = 0;        // The global time of the clock in seconds
+int point = false;    // Position of the point (change every seconds)
+int milliseconds = 0; // Counter of milliseconds
 
 /*********** Setup **********/
 void setup() {
@@ -40,12 +42,15 @@ void setup() {
   sevseg.setBrightness(90);
   
   // Init timer clock
-  Timer1.initialize(1000);
+  Timer1.initialize(2000); // Interruption every two milliseconds
   Timer1.attachInterrupt(updateTimer);
   
   // Configure buttons
   pinMode(BUTTON_1, INPUT);
   pinMode(BUTTON_2, INPUT);
+  
+  // Configure melody
+  initMelody(BUZZER, LED, 0);
 }
 
 /*********** Main loop **********/
@@ -58,19 +63,19 @@ void loop() {
     addTime(60);
     delay(200);
   }
-  
+  //sing(1);
 }
 
 /*********** Functions **********/
 
-// Used by the interruption every seconds
+// Used by the interruption every two milmiseconds
 void updateTimer() {
-  
-  milSeconds ++;
-  
+
+  milliseconds += 2;
+
   // If 1000 ms were counted --> Increment seconds timer
-  if (milSeconds == 1000) {
-    milSeconds = 0;
+  if (milliseconds == 1000) {
+    milliseconds = 0;
     addTime(1);
     point = !point;
   }
@@ -84,7 +89,7 @@ void updateTimer() {
 
 void addTime(int add) {
   time += add;
-    if (time >= 86400) {
+  if (time >= 86400) {
     time = 0;
   }
 }
