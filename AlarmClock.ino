@@ -27,6 +27,7 @@ SevSeg sevseg;          // Object of the lib SevSeg in order to control segments
 int updateTime = false; // Flag: true if time needs to be updated
 RTC_DS1307 rtc;         // Real Time Clock instance
 DateTime time;          // Current time
+DateTime alarmTime;     // Alarm time set up
 
 /*********** Setup **********/
 void setup() {
@@ -61,16 +62,40 @@ void setup() {
 
 /*********** Main loop **********/
 void loop() {
+  static int lastPush = millis();
+  static int alarm = false;
+
+  if (!digitalRead(BUTTON_1) && (millis() - lastPush) > 200) {
+    alarmTime = alarmTime + 3600;
+    lastPush = millis();
+    alarm = true;
+  }
+
+  if (!digitalRead(BUTTON_2) && (millis() - lastPush) > 200) {
+    alarmTime = alarmTime + 60;
+    lastPush = millis();
+    alarm = true;
+  }
+
   if (updateTime) {
     time = rtc.now();
     updateTime = false;
   }
-  
-  const int minutes = time.minute();
-  const int hours = time.hour() * 100;
-  sevseg.setNumber(hours + minutes, 2);
+
+  int minutes;
+  int hours;
+  if (alarm && (millis() - lastPush) < 3000) {
+    minutes = alarmTime.minute();
+    hours = alarmTime.hour();
+  } else {
+    minutes = time.minute();
+    hours = time.hour();
+    alarm = false;
+  }
+  sevseg.setNumber((hours * 100) + minutes, 2);
   sevseg.refreshDisplay();
 }
+
 /*********** Functions **********/
 
 // Used by the interruption every ms
