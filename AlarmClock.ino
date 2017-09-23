@@ -2,6 +2,7 @@
 
 /*********** Includes **********/
 #include <Wire.h>
+#include <EEPROM.h>
 #include "TimerOne.h"
 #include "SevSeg.h"
 #include "RTClib.h"
@@ -27,7 +28,7 @@ SevSeg sevseg;          // Object of the lib SevSeg in order to control segments
 int updateTime = false; // Flag: true if time needs to be updated
 RTC_DS1307 rtc;         // Real Time Clock instance
 DateTime time;          // Current time
-DateTime alarmTime;     // Alarm time set up
+DateTime alarmTime(2010, 1, 1, EEPROM.read(0), EEPROM.read(1), 0);    // Alarm time set up
 
 /*********** Setup **********/
 void setup() {
@@ -87,10 +88,14 @@ void loop() {
   if (alarm && (millis() - lastPush) < 3000) {
     minutes = alarmTime.minute();
     hours = alarmTime.hour();
-  } else {
+  } else {   
+    if (alarm) {
+      EEPROM.write(0, alarmTime.hour());
+      EEPROM.write(1, alarmTime.minute());
+      alarm = false;
+    }
     minutes = time.minute();
     hours = time.hour();
-    alarm = false;
   }
   sevseg.setNumber((hours * 100) + minutes, 2);
   sevseg.refreshDisplay();
