@@ -10,6 +10,7 @@
 /*********** Defines **********/
 #define BUTTON_1   0  // Pin connected to the first button (need interruption support)
 #define BUTTON_2   1  // Pin connected to the second button (need interruption support)
+#define BUTTON_3   A1 // Pin connected to the third button (activate or deactivate the ring)
 #define SEG_A      2  // Pin connected to the segment A
 #define SEG_B      A0  // Pin connected to the segment B
 #define SEG_C      4  // Pin connected to the segment C
@@ -22,13 +23,14 @@
 #define DIGIT_2    11 // Pin connected to the digit 2
 #define DIGIT_3    12 // Pin connected to the digit 3
 #define DIGIT_4    13 // Pin connected to the digit 4
+#define BUZZER     3  // Pin conncted to the buzzer
 
 /*********** Global variables **********/
-SevSeg sevseg;          // Object of the lib SevSeg in order to control segments
-int updateTime = false; // Flag: true if time needs to be updated
-RTC_DS1307 rtc;         // Real Time Clock instance
-DateTime time;          // Current time
-DateTime alarmTime(2010, 1, 1, EEPROM.read(0), EEPROM.read(1), 0);    // Alarm time set up
+SevSeg sevseg;                                                     // Object of the lib SevSeg in order to control segments
+bool updateTime = false;                                           // Flag: true if time needs to be updated
+RTC_DS1307 rtc;                                                    // Real Time Clock instance
+DateTime time;                                                     // Current time
+DateTime alarmTime(2010, 1, 1, EEPROM.read(0), EEPROM.read(1), 0); // Alarm time set up (hour and minutes saved at EEPROM addresses 0 and 1)
 
 /*********** Setup **********/
 void setup() {
@@ -48,47 +50,91 @@ void setup() {
   Timer1.attachInterrupt(updateTimer);
 
   // Configure buttons
-  pinMode(BUTTON_1, INPUT);
-  pinMode(BUTTON_2, INPUT);
-
-  // RTC
+  pinMode(BUTTON_1, INPUT); // hours
+  pinMode(BUTTON_2, INPUT); // minutes
+  pinMode(BUTTON_3, INPUT); // activate or deactivate the ring 
+  
+  // Configure buzzer
+  pinMode(BUZZER, OUTPUT); // Buzzer
+  
+  // RTC configuration 
   Wire.begin();
   rtc.begin();
   if (!rtc.isrunning()) {
     // If RTC not initialised with a time, set one from computer at build time
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   }
-  time = rtc.now();
+  time = rtc.now(); // Get the current time from RTC
 }
 
 /*********** Main loop **********/
 void loop() {
-  static int lastPush = millis();
-  static int alarm = false;
+  static unsigned long lastPush = millis(); // Store the last time button 1 or 2 was pushed
+  static unsigned long lastNote = millis(); // Store the last time a note was played
+  static unsigned long lastStopPush = 0;    // Store the last time button 3 was pushed
+  static bool alarm = false;                // Alarm time is displayed
+  static bool ringActive = false;           // Alarm is active (in order to ring when this is the right time)
+  static bool alarmRinging = false;         // True the alarm is ringing
 
+  // Increment hours every 200ms when pressed
   if (!digitalRead(BUTTON_1) && (millis() - lastPush) > 200) {
     alarmTime = alarmTime + 3600;
     lastPush = millis();
     alarm = true;
   }
 
+  // Increment minutes every 200ms when pressed
   if (!digitalRead(BUTTON_2) && (millis() - lastPush) > 200) {
     alarmTime = alarmTime + 60;
     lastPush = millis();
     alarm = true;
   }
 
+  if (!digitalRead(BUTTON_3)) {
+    // If the alarm was ringing, a push on button 3 stops it
+    if (alarmRinging) {
+      alarmRinging = false;
+    }
+    
+    // Check if the push lasts 3 seconds 
+    if (lastStopPush == 0) {
+      lastStopPush = millis();
+    } else if ((millis() - lastStopPush) > 3000) {
+      ringActive = !ringActive;
+      lastStopPush = millis();
+      tone(BUZZER, 880, 300);
+    }
+  }
+  
+  // When the button is released, reinit lastStopPush
+  if (digitalRead(BUTTON_3) && lastStopPush != 0) {
+      lastStopPush = 0;
+  }
+
+  // Update the time every minutes
   if (updateTime) {
     time = rtc.now();
     updateTime = false;
+    // Check if it's time to start the alarm
+    if (time.hour() == alarmTime.hour() && time.minute() == alarmTime.minute() && ringActive) {
+      alarmRinging = true;
+    }
+  }
+  
+  // Generate the ring
+  if (alarmRinging && (millis() - lastNote) > 600) {
+    tone(BUZZER, 880, 300);
+    lastNote = millis();
   }
 
   int minutes;
   int hours;
+  // Displays the alarm time during 3 seconds
   if (alarm && (millis() - lastPush) < 3000) {
     minutes = alarmTime.minute();
     hours = alarmTime.hour();
-  } else {   
+  } else { 
+    // Then, if the alarm time was changed, store the new alarm time in EEPROM  
     if (alarm) {
       EEPROM.write(0, alarmTime.hour());
       EEPROM.write(1, alarmTime.minute());
@@ -97,7 +143,9 @@ void loop() {
     minutes = time.minute();
     hours = time.hour();
   }
-  sevseg.setNumber((hours * 100) + minutes, 2);
+  
+  // Display the new time
+  sevseg.setNumber((hours * 100) + minutes, ringActive ? 2 : -1);
   sevseg.refreshDisplay();
 }
 
@@ -105,9 +153,10 @@ void loop() {
 
 // Used by the interruption every ms
 void updateTimer() {
-  static short milliseconds = 0;
+  static int milliseconds = 0;
   milliseconds++;
-  if (!(milliseconds % 1000)) {
+  // Every minute, it's time to update the time displayed
+  if (!(milliseconds % 60000)) {
     updateTime = true;
     milliseconds = 0;
   }
